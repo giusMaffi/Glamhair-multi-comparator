@@ -1,0 +1,52 @@
+# ============================================
+# GLAMHAIRSHOP ASSISTANT - Python Dependencies
+# ============================================
+
+# Web Framework
+Flask==3.0.0
+Flask-CORS==4.0.0
+gunicorn==21.2.0
+
+# Anthropic API
+anthropic==0.18.1
+
+# Embeddings & ML
+sentence-transformers==2.2.2
+torch==2.1.0
+scikit-learn==1.3.0
+numpy==1.24.3
+pandas==2.0.3
+
+# Data Processing
+beautifulsoup4==4.12.2
+requests==2.31.0
+lxml==4.9.3
+
+# Environment & Config
+python-dotenv==1.0.0
+
+# Utilities
+tqdm==4.66.1
+pillow==10.0.0
+
+# Testing
+pytest==7.4.3
+pytest-cov==4.1.0
+pytest-mock==3.12.0
+
+# Code Quality
+black==23.12.1
+flake8==6.1.0
+mypy==1.7.1
+
+# Logging & Monitoring
+python-json-logger==2.0.7
+
+# Optional: Vector DB (uncomment if using)
+# qdrant-client==1.7.0
+# pinecone-client==2.2.4
+
+# Optional: Production tools
+# redis==5.0.1
+# celery==5.3.4
+# sentry-sdk[flask]==1.39.1

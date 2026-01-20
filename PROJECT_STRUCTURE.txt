@@ -1,0 +1,200 @@
+GLAMHAIRSHOP ASSISTANT - Complete Project Structure
+====================================================
+
+glamhairshop-assistant/
+│
+├── 📄 README.md                           # Main documentation
+├── 📄 .gitignore                          # Git ignore rules
+├── 📄 .env.example                        # Environment template
+├── 📄 .env                                # Actual config (NOT in git)
+├── 📄 requirements.txt                    # Python dependencies
+├── 📄 setup.py                            # Package setup (optional)
+├── 📄 SETUP_INSTRUCTIONS.md               # This setup guide
+│
+├── 📂 docs/                               # 📚 Documentation
+│   ├── ARCHITECTURE.md                    # System architecture
+│   ├── API.md                             # API documentation
+│   ├── DEPLOYMENT.md                      # Deployment guide
+│   └── CONTRIBUTING.md                    # Contribution guide
+│
+├── 📂 data/                               # 💾 Data files
+│   ├── .gitkeep
+│   ├── products/
+│   │   ├── haircare_products.json         # Hair care catalog
+│   │   ├── parrucchiere_products.json     # Professional catalog
+│   │   ├── products_sample.json           # Sample for testing
+│   │   └── .gitkeep
+│   ├── embeddings/
+│   │   ├── haircare_embeddings.pkl        # Hair care vectors
+│   │   ├── parrucchiere_embeddings.pkl    # Professional vectors
+│   │   └── .gitkeep
+│   └── raw/                               # Raw scraped data
+│       └── .gitkeep
+│
+├── 📂 src/                                # 🧠 Core application logic
+│   ├── __init__.py
+│   ├── config.py                          # ⚙️ Central configuration
+│   │
+│   ├── api/                               # Claude API integration
+│   │   ├── __init__.py
+│   │   ├── claude_client.py               # Anthropic client wrapper
+│   │   └── prompts/
+│   │       ├── __init__.py
+│   │       ├── haircare_prompt.py         # Hair care system prompt
+│   │       └── parrucchiere_prompt.py     # Professional system prompt
+│   │
+│   ├── rag/                               # RAG System
+│   │   ├── __init__.py
+│   │   ├── retriever.py                   # Semantic search engine
+│   │   ├── embeddings.py                  # Embeddings generation
+│   │   └── matchers/
+│   │       ├── __init__.py
+│   │       ├── base_matcher.py            # Base matcher class
+│   │       ├── haircare_matcher.py        # Hair care requirements
+│   │       └── parrucchiere_matcher.py    # Professional requirements
+│   │
+│   ├── routing/                           # Category routing
+│   │   ├── __init__.py
+│   │   ├── category_detector.py           # Detect haircare vs parrucchiere
+│   │   └── query_enrichment.py            # Context enrichment
+│   │
+│   └── utils/                             # Utilities
+│       ├── __init__.py
+│       ├── logging.py                     # Logging setup
+│       ├── validation.py                  # Input validation
+│       └── formatting.py                  # Response formatting
+│
+├── 📂 app/                                # 🌐 Flask web application
+│   ├── __init__.py
+│   ├── app.py                             # Main Flask app
+│   │
+│   ├── routes/
+│   │   ├── __init__.py
+│   │   ├── chat.py                        # POST /api/chat
+│   │   └── health.py                      # GET /health
+│   │
+│   ├── static/
+│   │   ├── css/
+│   │   │   ├── style.css                  # Main styles
+│   │   │   └── widget.css                 # Widget styles
+│   │   ├── js/
+│   │   │   ├── chat.js                    # Chat interface
+│   │   │   ├── translations.js            # Multi-language
+│   │   │   └── analytics.js               # Umami tracking
+│   │   └── images/
+│   │       └── logo.svg                   # Glamhairshop logo
+│   │
+│   └── templates/
+│       ├── index.html                     # Main app page
+│       └── widget.html                    # Embeddable widget
+│
+├── 📂 scripts/                            # 🛠️ Utility scripts
+│   ├── __init__.py
+│   ├── scraping/
+│   │   ├── __init__.py
+│   │   ├── scrape_haircare.py             # Scrape hair care products
+│   │   └── scrape_parrucchiere.py         # Scrape professional products
+│   ├── generate_embeddings.py             # Generate all embeddings
+│   ├── validate_products.py               # Validate product data
+│   └── test_rag.py                        # Test RAG system
+│
+├── 📂 tests/                              # 🧪 Test suite
+│   ├── __init__.py
+│   ├── test_category_detection.py         # Test category routing
+│   ├── test_matchers.py                   # Test product matchers
+│   ├── test_retriever.py                  # Test semantic search
+│   └── test_api.py                        # Test Flask endpoints
+│
+├── 📂 logs/                               # 📝 Application logs
+│   ├── .gitkeep
+│   ├── app.log                            # General logs
+│   └── queries.log                        # User queries log
+│
+└── 📂 deploy/                             # 🚀 Deployment configs
+    ├── Dockerfile                         # Docker image
+    ├── docker-compose.yml                 # Docker Compose
+    ├── railway.json                       # Railway config
+    └── nginx.conf                         # Nginx config
+
+
+FILE COUNT SUMMARY
+==================
+📁 Total Directories: ~20
+📄 Python files: ~25
+📄 Config files: ~10
+📄 Documentation: ~5
+📄 Frontend files: ~8
+📄 Test files: ~5
+
+TOTAL: ~70 files
+
+
+KEY DIRECTORIES
+===============
+
+🧠 CORE LOGIC (src/)
+├── config.py         → Central configuration
+├── api/              → Claude API integration
+├── rag/              → Retrieval-Augmented Generation
+└── routing/          → Category detection & routing
+
+🌐 WEB APP (app/)
+├── app.py            → Flask server
+├── routes/           → API endpoints
+├── static/           → CSS, JS, images
+└── templates/        → HTML pages
+
+💾 DATA (data/)
+├── products/         → Product catalogs (JSON)
+├── embeddings/       → Vector embeddings (pickle)
+└── raw/              → Raw scraped data
+
+🛠️ UTILITIES (scripts/)
+├── scraping/         → Web scraping scripts
+├── generate_embeddings.py → Create vectors
+└── test_rag.py       → Test retrieval system
+
+🧪 TESTING (tests/)
+└── test_*.py         → Unit & integration tests
+
+
+WORKFLOW
+========
+
+1. DATA PIPELINE
+   scraping → JSON → embeddings.pkl
+
+2. RUNTIME FLOW
+   User Query → Category Detection → RAG Retrieval
+   → Product Matching → Claude API → Response
+
+3. DEVELOPMENT
+   Feature Branch → Code → Test → Commit → Push → PR → Merge
+
+
+NEXT STEPS
+==========
+
+✅ Phase 1: Project Setup (DONE)
+   - Repository structure
+   - Configuration files
+   - Documentation
+
+🔄 Phase 2: Core Development (IN PROGRESS)
+   - RAG system
+   - Product matchers
+   - Category detection
+
+⏳ Phase 3: Web Application
+   - Flask API
+   - Frontend interface
+   - Widget embed
+
+⏳ Phase 4: Testing & Deploy
+   - Unit tests
+   - Integration tests
+   - Railway deployment
+
+
+For detailed setup instructions, see SETUP_INSTRUCTIONS.md
+For architecture details, see docs/ARCHITECTURE.md
