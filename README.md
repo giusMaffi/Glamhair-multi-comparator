@@ -74,6 +74,34 @@ cp .env.example .env
 # Edit .env with your ANTHROPIC_API_KEY
 ```
 
+## 🤖 Embedding Models
+
+Il sistema utilizza `sentence-transformers` per generare embeddings semantici dei prodotti.
+
+### Primo Avvio
+
+Al primo avvio, il modello embedding (~1GB) viene scaricato automaticamente da Hugging Face:
+- **Modello:** `sentence-transformers/all-MiniLM-L6-v2`
+- **Dimensione:** ~1GB
+- **Location:** `models/embedding_model/`
+
+> **Nota:** La directory `models/` è esclusa da Git. Il download è automatico.
+
+### Rigenerare Models
+
+Se la directory `models/` viene cancellata:
+```bash
+# I modelli si rigenerano automaticamente
+rm -rf models/
+python src/rag/embeddings.py  # Re-download automatico
+```
+
+### Cache FAISS Indexes
+
+Gli indici FAISS vengono salvati in `data/products/docs/` e sono esclusi da Git:
+- **Dimensione:** ~40KB
+- **Rigenerazione:** Automatica se mancanti
+
 ### Generate Embeddings
 
 ```bash
