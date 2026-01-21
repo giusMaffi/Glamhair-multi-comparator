@@ -1,0 +1,97 @@
+# ============================================
+# RATE LIMITS CONFIGURATION
+# Glamhair Multi Comparator - Cost Protection
+# ============================================
+
+# IP-based limits (anti-bot protection)
+ip_limits:
+  requests_per_minute: 10
+  requests_per_hour: 60
+  requests_per_day: 200
+  burst_allowance: 3
+  cooldown_minutes: 10
+
+# Session-based limits (user experience)
+session_limits:
+  max_messages: 20
+  max_duration_minutes: 30
+  max_sessions_per_ip_per_day: 5
+
+# Global system limits (cost protection)
+global_limits:
+  max_conversations_per_day: 1000
+  max_cost_per_day_usd: 60.00
+  max_cost_per_month_usd: 1500.00
+  
+  # Progressive throttling thresholds
+  warning_threshold: 0.80      # Alert at 80%
+  throttle_threshold: 0.90     # Slow down at 90%
+  emergency_stop: 0.95         # Hard stop at 95%
+
+# Whitelist (bypass limits for development/testing)
+whitelist:
+  ips:
+    - "127.0.0.1"              # Localhost
+    - "::1"                    # IPv6 localhost
+  
+  sessions:
+    - "dev_session"
+    - "test_session"
+
+# Alert configuration
+alerts:
+  email:
+    enabled: false
+    to: "your-email@example.com"
+    smtp_server: "smtp.gmail.com"
+    smtp_port: 587
+  
+  slack:
+    enabled: false
+    webhook_url: ""
+  
+  # Alert thresholds
+  thresholds:
+    - type: "cost"
+      level: "warning"
+      threshold: 0.80
+      message: "Daily budget at 80%"
+    
+    - type: "cost"
+      level: "critical"
+      threshold: 0.95
+      message: "Daily budget at 95% - Emergency stop"
+    
+    - type: "traffic"
+      level: "warning"
+      threshold: 800
+      message: "High traffic: 800 conversations today"
+    
+    - type: "traffic"
+      level: "critical"
+      threshold: 950
+      message: "Critical traffic: approaching daily limit"
+
+# User-facing messages
+messages:
+  rate_limit_ip: "Too many requests. Please wait {retry_after} seconds."
+  rate_limit_session: "Maximum messages reached for this conversation. Please start a new one."
+  daily_limit: "Daily capacity reached. Service will resume tomorrow. Thank you for your patience!"
+  budget_exceeded: "Service temporarily unavailable due to high demand. Please try again later."
+  session_expired: "Your session has expired. Please refresh the page to start a new conversation."
+
+# ============================================
+# COST TRACKING
+# ============================================
+
+cost_tracking:
+  enabled: true
+  log_file: "logs/costs/daily_costs.log"
+  save_interval_minutes: 5
+  
+  # Cost breakdown tracking
+  track_by:
+    - "hour"
+    - "day"
+    - "week"
+    - "month"
