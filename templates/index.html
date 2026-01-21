@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Glamhair AI Assistant - MVP</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>💇 Glamhair AI Assistant</h1>
+            <p class="subtitle">Il tuo consulente intelligente per prodotti professionali capelli</p>
+            <div class="status">
+                <span class="status-indicator" id="status-indicator">●</span>
+                <span id="status-text">Connecting...</span>
+            </div>
+        </header>
+
+        <div class="chat-container">
+            <div class="chat-messages" id="chat-messages">
+                <div class="message assistant">
+                    <div class="message-content">
+                        👋 Ciao! Sono l'assistente AI di Glamhairshop. Come posso aiutarti oggi?
+                    </div>
+                </div>
+            </div>
+
+            <div class="chat-input-container">
+                <textarea 
+                    id="user-input" 
+                    placeholder="Scrivi qui la tua domanda..."
+                    rows="1"
+                ></textarea>
+                <button id="send-button">Invia</button>
+            </div>
+        </div>
+
+        <footer>
+            <p>MVP Test Version • Session: <span id="session-id">-</span></p>
+        </footer>
+    </div>
+
+    <script src="/static/js/app.js"></script>
+</body>
+</html>
