@@ -1,0 +1,18 @@
+{
+  "start_time": "2026-01-21 12:59:15.013223",
+  "end_time": null,
+  "duration": 0,
+  "total_products": 2619,
+  "processed": 2618,
+  "successful": 2618,
+  "failed": 1,
+  "failed_products": [
+    {
+      "id": "GLAM_PARR_007",
+      "error": "float() argument must be a string or a real number, not 'NoneType'"
+    }
+  ],
+  "batches_processed": 27,
+  "avg_time_per_batch": 1.2052829883716725,
+  "avg_time_per_product": 0.0124303440359187
+}
