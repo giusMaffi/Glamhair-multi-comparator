@@ -43,9 +43,13 @@ venv.bak/
 # Data Files (except samples)
 data/products/*.json
 !data/products/products_sample.json
+data/products/docs/
 data/embeddings/*.pkl
 data/raw/*
 !data/**/.gitkeep
+
+# Models (downloaded from Hugging Face)
+models/
 
 # Logs
 logs/*.log
@@ -85,5 +89,6 @@ Thumbs.db
 # Temporary files
 *.tmp
 *.temp
+*.backup
 tmp/
 temp/
