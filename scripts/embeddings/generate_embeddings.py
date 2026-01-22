@@ -461,16 +461,29 @@ class EmbeddingsGenerator:
                 # Generate embedding text
                 embedding_text = get_embedding_text(product)
                 
-                # Prepare metadata
+                # Prepare metadata - SAVE ALL PRODUCT FIELDS
                 metadata = {
                     'id': product.get('id', f"UNKNOWN_{self.stats['processed']}"),
                     'nome': product.get('nome', ''),
                     'brand': product.get('brand', ''),
                     'categoria': product.get('categoria', ''),
+                    'subcategoria': product.get('subcategoria', ''),
                     'price': float(product.get('regular_price', 0)),
+                    'regular_price': float(product.get('regular_price', 0)),
+                    'promo_price': float(product.get('promo_price', 0)) if product.get('promo_price') else None,
+                    'discount_percent': product.get('discount_percent'),
                     'price_range': get_price_range(float(product.get('regular_price', 0))),
                     'url': product.get('url', ''),
                     'immagine': product.get('immagine', ''),
+                    'descrizione_completa': product.get('descrizione_completa', ''),
+                    'ingredienti': product.get('ingredienti', ''),
+                    'modo_uso': product.get('modo_uso', ''),
+                    'benefici': product.get('benefici', ''),
+                    'tecnologie': product.get('tecnologie', ''),
+                    'valori_nutrizionali': product.get('valori_nutrizionali', ''),
+                    'scraped_at': product.get('scraped_at', ''),
+                    'pdp_scraped': product.get('pdp_scraped', False),
+                    'pdp_scraped_at': product.get('pdp_scraped_at', ''),
                 }
                 
                 texts.append(embedding_text)

@@ -1,8 +1,8 @@
 {
-  "generation_date": "2026-01-21T12:59:52.990682",
+  "generation_date": "2026-01-22T14:46:05.956237",
   "duration_seconds": 0,
   "stats": {
-    "start_time": "2026-01-21 12:59:15.013223",
+    "start_time": "2026-01-22 14:45:32.258424",
     "end_time": null,
     "duration": 0,
     "total_products": 2619,
@@ -16,8 +16,8 @@
       }
     ],
     "batches_processed": 27,
-    "avg_time_per_batch": 1.2052829883716725,
-    "avg_time_per_product": 0.0124303440359187
+    "avg_time_per_batch": 1.078227581801238,
+    "avg_time_per_product": 0.011119994159141873
   },
   "config": {
     "model": "paraphrase-multilingual-mpnet-base-v2",

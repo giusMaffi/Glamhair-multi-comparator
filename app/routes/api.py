@@ -4,8 +4,8 @@ API Routes - Claude Integration
 Chat endpoints for Glamhair Multi Comparator
 
 Author: Peppe
-Date: 2026-01-21
-Version: 2.0 - Claude Integration
+Date: 2026-01-22
+Version: 2.1 - FIX P1: Context-Aware Retrieval
 """
 
 import logging
@@ -93,9 +93,41 @@ def chat():
         try:
             retriever = get_retriever()
             
-            logger.info(f"Searching products for: '{user_message[:100]}'")
+            # ========================================
+            # FIX P1: CONTEXT-AWARE QUERY ENRICHMENT
+            # ========================================
+            
+            # Get conversation history BEFORE current message
+            conversation_history = current_app.session_manager.get_conversation_history(session_id)
+            
+            # FIXED: Don't remove last message if history has only 1 item (the current message)
+            # Only exclude current message if there's actual prior history
+            if len(conversation_history) > 1:
+                # Exclude the message we just added (last one)
+                conversation_history = conversation_history[:-1]
+            else:
+                # First message in conversation - no prior history
+                conversation_history = []
+            
+            # Context-aware retrieval: Enrich short queries with previous context
+            # This prevents hallucinations on followup queries like "fammi vedere cosa hai"
+            enriched_query = user_message  # Default: use message as-is
+            
+            if len(user_message.split()) <= 5 and conversation_history:
+                # Short query + we have context → combine with last user message
+                last_user_msgs = [m for m in conversation_history if m['role'] == 'user']
+                
+                if last_user_msgs:
+                    last_user_content = last_user_msgs[-1]['content']
+                    enriched_query = f"{last_user_content} {user_message}"
+                    logger.info(
+                        f"Enriched short query: '{user_message}' → '{enriched_query[:100]}...'"
+                    )
+            
+            # Use enriched query for retrieval
+            logger.info(f"Searching products for: '{enriched_query[:100]}'")
             products = retriever.search(
-                query=user_message,
+                query=enriched_query,  # ← FIXED: Use enriched_query instead of user_message
                 top_k=20,
                 min_similarity=0.3
             )
@@ -104,14 +136,13 @@ def chat():
             
             products_context = format_products_for_context(products, max_products=20)
             
-            conversation_history = current_app.session_manager.get_conversation_history(session_id)
-            if conversation_history and len(conversation_history) > 0:
-                conversation_history = conversation_history[:-1]
-            
+            # Prepare history for Claude (already filtered above)
             claude_history = [
                 {'role': msg['role'], 'content': msg['content']}
                 for msg in conversation_history
             ]
+            
+            logger.info(f"Formatted {len(claude_history)} messages for Claude")
             
             claude_client = get_claude_client()
             
