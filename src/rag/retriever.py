@@ -1,265 +1,391 @@
 #!/usr/bin/env python3
 """
-RAG Retriever - FAISS-based semantic search
-Version: 2.1 - Fixed product context formatting with full descriptions
+Hybrid Retriever for Glamhair Multi Comparator
+Combines keyword matching + semantic search for optimal results
 
-Author: Peppe
+Author: Peppe + Claude
 Date: 2026-01-22
+Version: 2.0 - Hybrid Search
 """
 
 import json
 import logging
 from pathlib import Path
 from typing import List, Dict, Optional
+import re
+
 import numpy as np
 from sentence_transformers import SentenceTransformer
+import faiss
 
-logger = logging.getLogger('src.rag.retriever')
+from src.config import (
+    DATA_DIR,
+    BASE_DIR,
+    EMBEDDING_MODEL,
+    TOP_K_PRODUCTS,
+)
 
-# ============================================
-# CONFIGURATION
-# ============================================
+logger = logging.getLogger(__name__)
 
-PROJECT_ROOT = Path(__file__).parent.parent.parent
-EMBEDDINGS_DIR = PROJECT_ROOT / 'data' / 'embeddings'
-FAISS_INDEX_PATH = EMBEDDINGS_DIR / 'faiss_index.bin'
-METADATA_PATH = EMBEDDINGS_DIR / 'products_metadata.json'
+MODELS_DIR = BASE_DIR / 'models'
 
-MODEL_NAME = 'sentence-transformers/paraphrase-multilingual-mpnet-base-v2'
-
-# ============================================
-# RETRIEVER CLASS
-# ============================================
-
-class ProductRetriever:
-    """Semantic search retriever using FAISS"""
+class HybridProductRetriever:
+    """
+    Hybrid search combining:
+    1. Keyword matching (exact brand/category matches)
+    2. Semantic search (FAISS embeddings)
     
-    def __init__(
-        self,
-        index_path: Path = FAISS_INDEX_PATH,
-        metadata_path: Path = METADATA_PATH,
-        model_name: str = MODEL_NAME
-    ):
-        """Initialize retriever"""
-        self.index_path = index_path
-        self.metadata_path = metadata_path
-        self.model_name = model_name
-        
+    Optimized for queries like "shampoo wella" to return ALL Wella shampoos
+    """
+    
+    def __init__(self):
         self.index = None
-        self.products_metadata = None
+        self.metadata = []
         self.model = None
+        self.loaded = False
         
-        self._load_index()
-        self._load_metadata()
-        self._load_model()
+        self.index_file = DATA_DIR / 'embeddings' / 'faiss_index.bin'
+        self.metadata_file = DATA_DIR / 'embeddings' / 'products_metadata.json'
+        self.model_cache_dir = MODELS_DIR / 'embedding_model'
         
-        logger.info("✅ Retriever ready")
+        # Brand keywords for exact matching
+        self.known_brands = set()
+        
+        logger.info("HybridProductRetriever initialized")
     
-    def _load_index(self):
-        """Load FAISS index"""
-        import faiss
+    def load(self) -> bool:
+        """Load FAISS index, metadata, and embedding model"""
+        if self.loaded:
+            logger.info("Retriever already loaded")
+            return True
         
-        if not self.index_path.exists():
-            raise FileNotFoundError(f"FAISS index not found: {self.index_path}")
-        
-        self.index = faiss.read_index(str(self.index_path))
-        logger.info(f"✅ FAISS index loaded ({self.index.ntotal} vectors)")
+        try:
+            logger.info("Loading FAISS index and metadata...")
+            
+            if not self.index_file.exists():
+                logger.error(f"FAISS index not found: {self.index_file}")
+                return False
+            
+            self.index = faiss.read_index(str(self.index_file))
+            logger.info(f"✅ FAISS index loaded ({self.index.ntotal} vectors)")
+            
+            if not self.metadata_file.exists():
+                logger.error(f"Metadata not found: {self.metadata_file}")
+                return False
+            
+            with open(self.metadata_file, 'r', encoding='utf-8') as f:
+                self.metadata = json.load(f)
+            logger.info(f"✅ Metadata loaded ({len(self.metadata)} products)")
+            
+            if self.index.ntotal != len(self.metadata):
+                logger.error(f"Mismatch: {self.index.ntotal} vs {len(self.metadata)}")
+                return False
+            
+            # Extract known brands
+            self.known_brands = set(
+                p.get('brand', '').lower().strip() 
+                for p in self.metadata 
+                if p.get('brand')
+            )
+            logger.info(f"✅ Extracted {len(self.known_brands)} unique brands")
+            
+            logger.info(f"Loading embedding model: {EMBEDDING_MODEL}...")
+            self.model = SentenceTransformer(
+                EMBEDDING_MODEL,
+                cache_folder=str(self.model_cache_dir)
+            )
+            logger.info("✅ Model loaded")
+            
+            self.loaded = True
+            logger.info("✅ Hybrid retriever ready")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Error loading retriever: {e}", exc_info=True)
+            return False
     
-    def _load_metadata(self):
-        """Load products metadata"""
-        if not self.metadata_path.exists():
-            raise FileNotFoundError(f"Metadata not found: {self.metadata_path}")
+    def _extract_filters(self, query: str) -> Dict:
+        """
+        Extract filters from query (brand, category, price)
         
-        with open(self.metadata_path, 'r', encoding='utf-8') as f:
-            self.products_metadata = json.load(f)
+        Examples:
+            "shampoo wella" → brand: "wella"
+            "phon ghd economico" → brand: "ghd", price: "low"
+            "kerastase colorati" → brand: "kerastase", category: "colorati"
+        """
+        filters = {
+            'brand': None,
+            'category_keywords': [],
+            'price_hint': None
+        }
         
-        logger.info(f"✅ Metadata loaded ({len(self.products_metadata)} products)")
+        query_lower = query.lower()
+        
+        # Extract brand (exact match)
+        for brand in self.known_brands:
+            if brand in query_lower:
+                filters['brand'] = brand
+                logger.info(f"🎯 Detected brand filter: {brand}")
+                break
+        
+        # Extract category keywords
+        category_keywords = [
+            'shampoo', 'balsamo', 'maschera', 'trattamento',
+            'olio', 'siero', 'spray', 'mousse', 'gel',
+            'phon', 'piastra', 'spazzola', 'diffusore'
+        ]
+        
+        for keyword in category_keywords:
+            if keyword in query_lower:
+                filters['category_keywords'].append(keyword)
+        
+        # Extract price hints
+        if any(word in query_lower for word in ['economico', 'conveniente', 'low cost']):
+            filters['price_hint'] = 'low'
+        elif any(word in query_lower for word in ['premium', 'professionale', 'lusso']):
+            filters['price_hint'] = 'high'
+        
+        return filters
     
-    def _load_model(self):
-        """Load embedding model"""
-        self.model = SentenceTransformer(self.model_name)
-        logger.info("✅ Model loaded")
+    def _keyword_search(self, filters: Dict, top_k: int) -> List[Dict]:
+        """
+        Perform keyword-based filtering on metadata
+        Returns products matching filters exactly
+        """
+        results = []
+        
+        brand_filter = filters.get('brand')
+        category_keywords = filters.get('category_keywords', [])
+        
+        if not brand_filter and not category_keywords:
+            return results
+        
+        for product in self.metadata:
+            # Brand partial match (allows "wella" to match "Wella Sp")
+            if brand_filter:
+                product_brand = product.get('brand', '').lower().strip()
+                if brand_filter not in product_brand:
+                    continue
+            
+            # Category keyword match
+            if category_keywords:
+                product_nome = product.get('nome', '').lower()
+                product_cat = product.get('categoria', '').lower()
+                
+                # At least one keyword must match
+                if not any(kw in product_nome or kw in product_cat for kw in category_keywords):
+                    continue
+            
+            # Match!
+            product_copy = product.copy()
+            product_copy['match_type'] = 'keyword'
+            product_copy['similarity_score'] = 1.0  # Perfect keyword match
+            results.append(product_copy)
+        
+        logger.info(f"🔍 Keyword search found {len(results)} exact matches")
+        return results[:top_k]
+    
+    def _semantic_search(
+        self,
+        query: str,
+        top_k: int,
+        min_similarity: float,
+        exclude_ids: set = None
+    ) -> List[Dict]:
+        """Perform semantic FAISS search"""
+        try:
+            query_embedding = self.model.encode(
+                query,
+                normalize_embeddings=True,
+                convert_to_numpy=True
+            )
+            
+            query_embedding = query_embedding.reshape(1, -1).astype('float32')
+            
+            # Search more to account for exclusions
+            search_k = top_k * 2 if exclude_ids else top_k
+            similarities, indices = self.index.search(query_embedding, search_k)
+            
+            results = []
+            for similarity, idx in zip(similarities[0], indices[0]):
+                if idx == -1:
+                    continue
+                
+                if similarity < min_similarity:
+                    continue
+                
+                metadata = self.metadata[idx].copy()
+                
+                # Skip if already in keyword results
+                if exclude_ids and metadata['id'] in exclude_ids:
+                    continue
+                
+                metadata['similarity_score'] = float(similarity)
+                metadata['match_type'] = 'semantic'
+                results.append(metadata)
+                
+                if len(results) >= top_k:
+                    break
+            
+            logger.info(f"🧠 Semantic search found {len(results)} results")
+            return results
+            
+        except Exception as e:
+            logger.error(f"Error during semantic search: {e}", exc_info=True)
+            return []
     
     def search(
         self,
         query: str,
-        top_k: int = 20,
-        min_similarity: float = 0.0
+        top_k: int = None,
+        min_similarity: float = 0.3,
+        **kwargs
     ) -> List[Dict]:
         """
-        Search products by semantic similarity
+        Hybrid search combining keyword + semantic
         
-        Args:
-            query: Search query
-            top_k: Number of results to return
-            min_similarity: Minimum similarity score (0-1)
-            
-        Returns:
-            List of product dicts with similarity scores
+        Strategy:
+        1. Extract filters from query (brand, category)
+        2. If filters present → keyword search first
+        3. Fill remaining slots with semantic search
+        4. Merge and deduplicate results
         """
-        logger.info(f"Searching: '{query}' (top_k={top_k})")
+        if not self.loaded:
+            logger.error("Retriever not loaded")
+            return []
         
-        # Generate query embedding
-        query_embedding = self.model.encode([query], convert_to_numpy=True)
-        query_embedding = query_embedding.astype('float32')
+        if top_k is None:
+            top_k = TOP_K_PRODUCTS
         
-        # Search FAISS
-        distances, indices = self.index.search(query_embedding, top_k)
+        logger.info(f"🔎 Hybrid search: '{query[:100]}' (top_k={top_k})")
         
-        # Convert distances to similarity scores (cosine similarity)
-        similarities = 1 - (distances[0] / 2)
+        # Extract filters
+        filters = self._extract_filters(query)
         
-        # Build results
         results = []
-        for idx, similarity in zip(indices[0], similarities):
-            if similarity < min_similarity:
-                continue
-            
-            if idx >= len(self.products_metadata):
-                logger.warning(f"Index {idx} out of range for metadata")
-                continue
-            
-            product = self.products_metadata[idx].copy()
-            product['similarity_score'] = float(similarity)
-            results.append(product)
+        keyword_ids = set()
         
-        logger.info(f"Found {len(results)} results")
-        return results
+        # PHASE 1: Keyword search (if filters present)
+        if filters['brand'] or filters['category_keywords']:
+            keyword_results = self._keyword_search(filters, top_k=top_k)
+            results.extend(keyword_results)
+            keyword_ids = {r['id'] for r in keyword_results}
+            logger.info(f"✅ Phase 1 (keyword): {len(results)} results")
+        
+        # PHASE 2: Semantic search (fill remaining slots)
+        remaining_slots = top_k - len(results)
+        
+        if remaining_slots > 0:
+            # Lower threshold if we have keyword matches already
+            semantic_threshold = min_similarity * 0.8 if keyword_ids else min_similarity
+            
+            semantic_results = self._semantic_search(
+                query=query,
+                top_k=remaining_slots,
+                min_similarity=semantic_threshold,
+                exclude_ids=keyword_ids
+            )
+            results.extend(semantic_results)
+            logger.info(f"✅ Phase 2 (semantic): +{len(semantic_results)} results")
+        
+        # PHASE 3: Sort by relevance
+        # Keyword matches first (score 1.0), then semantic by score
+        results.sort(key=lambda x: x['similarity_score'], reverse=True)
+        
+        logger.info(f"🎯 Total results: {len(results)}")
+        return results[:top_k]
     
     def get_stats(self) -> Dict:
         """Get retriever statistics"""
+        if not self.loaded:
+            return {'loaded': False}
+        
         return {
-            'total_products': len(self.products_metadata) if self.products_metadata else 0,
-            'index_size': self.index.ntotal if self.index else 0,
-            'model': self.model_name,
-            'index_path': str(self.index_path),
-            'metadata_path': str(self.metadata_path)
+            'loaded': True,
+            'total_products': len(self.metadata),
+            'index_size': self.index.ntotal,
+            'model': EMBEDDING_MODEL,
+            'known_brands': len(self.known_brands),
+            'search_mode': 'hybrid (keyword + semantic)'
         }
 
-
-# ============================================
-# SINGLETON INSTANCE
-# ============================================
-
+# Global singleton
 _retriever_instance = None
 
-def get_retriever() -> ProductRetriever:
-    """Get or create retriever singleton"""
+def get_retriever() -> HybridProductRetriever:
+    """Get or create global retriever instance"""
     global _retriever_instance
     
     if _retriever_instance is None:
-        _retriever_instance = ProductRetriever()
+        logger.info("Creating hybrid retriever instance...")
+        _retriever_instance = HybridProductRetriever()
+        
+        if not _retriever_instance.load():
+            logger.error("Failed to load retriever")
+            raise RuntimeError("Retriever initialization failed")
     
     return _retriever_instance
 
-
-# ============================================
-# FORMATTING FUNCTIONS
-# ============================================
-
 def format_products_for_context(products: List[Dict], max_products: int = 20) -> str:
-    """
-    Format product list for Claude context with COMPLETE information
-    
-    CRITICAL: Include ALL product details so Claude can make informed recommendations
-    """
+    """Format product list for Claude context"""
     if not products:
         return "Nessun prodotto trovato."
     
     products = products[:max_products]
     
+    header = f"# CATALOGO PRODOTTI DISPONIBILI ({len(products)} risultati)\n\n"
+    
     formatted_products = []
     for i, product in enumerate(products, 1):
-        # Start with basic info
-        product_text = [
-            f"## PRODOTTO {i}",
-            f"**Nome:** {product['nome']}",
-            f"**Brand:** {product['brand']}",
-            f"**Categoria:** {product['categoria']}",
-        ]
+        parts = [f"{i}. **{product['nome']}**"]
         
-        # Price handling with fallback
-        price = product.get('price')
-        if price and price > 0:
-            product_text.append(f"**Prezzo:** €{price:.2f}")
-        else:
-            product_text.append("**Prezzo:** Non disponibile")
+        # Brand & Category
+        parts.append(f"   Brand: {product['brand']}")
+        parts.append(f"   Categoria: {product['categoria']}")
         
-        # Add product ID and URL
-        product_text.append(f"**ID Prodotto:** {product['id']}")
-        product_text.append(f"**Link:** {product['url']}")
+        if product.get('subcategoria'):
+            parts.append(f"   Subcategoria: {product['subcategoria']}")
         
-        # CRITICAL: Add full description if available
+        # Pricing
+        parts.append(f"   Prezzo: €{product['price']:.2f}")
+        
+        if product.get('promo_price'):
+            parts.append(f"   Prezzo promo: €{product['promo_price']:.2f}")
+            if product.get('discount_percent'):
+                parts.append(f"   Sconto: {product['discount_percent']}%")
+        
+        # Description
         desc = product.get('descrizione_completa', '').strip()
         if desc:
-            # Truncate if too long (max 500 chars to save tokens)
             if len(desc) > 500:
                 desc = desc[:497] + "..."
-            product_text.append(f"**Descrizione:** {desc}")
+            parts.append(f"   **Descrizione:** {desc}")
         
-        # Add ingredients if available
+        # Ingredients
         ingredienti = product.get('ingredienti', '').strip()
         if ingredienti:
             if len(ingredienti) > 300:
                 ingredienti = ingredienti[:297] + "..."
-            product_text.append(f"**Ingredienti:** {ingredienti}")
+            parts.append(f"   **Ingredienti:** {ingredienti}")
         
-        # Add usage instructions if available
+        # Usage
         modo_uso = product.get('modo_uso', '').strip()
         if modo_uso:
             if len(modo_uso) > 200:
                 modo_uso = modo_uso[:197] + "..."
-            product_text.append(f"**Utilizzo:** {modo_uso}")
+            parts.append(f"   **Modo d'uso:** {modo_uso}")
         
-        # Add image URL if available
-        immagine = product.get('immagine', '').strip()
-        if immagine:
-            product_text.append(f"**Immagine:** {immagine}")
+        # Image & URL
+        if product.get('immagine'):
+            parts.append(f"   Immagine: {product['immagine']}")
         
-        # Add similarity score for debugging
-        similarity = product.get('similarity_score', 0)
-        product_text.append(f"**Relevance Score:** {similarity:.3f}")
+        parts.append(f"   Link: {product['url']}")
         
-        formatted_products.append("\n".join(product_text))
-    
-    # Add header
-    header = f"# CATALOGO PRODOTTI DISPONIBILI ({len(products)} risultati)\n"
-    header += "=" * 60 + "\n\n"
+        # Match metadata
+        match_type = product.get('match_type', 'unknown')
+        score = product.get('similarity_score', 0)
+        parts.append(f"   Relevance: {score:.2f} ({match_type})")
+        
+        formatted_products.append("\n".join(parts))
     
     return header + "\n\n".join(formatted_products)
-
-
-# ============================================
-# MAIN (for testing)
-# ============================================
-
-if __name__ == '__main__':
-    # Setup logging
-    logging.basicConfig(
-        level=logging.INFO,
-        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-    )
-    
-    # Test retriever
-    retriever = get_retriever()
-    
-    # Test search
-    query = "shampoo wella per capelli grassi"
-    results = retriever.search(query, top_k=5)
-    
-    print(f"\n{'='*60}")
-    print(f"Query: {query}")
-    print(f"{'='*60}\n")
-    
-    for product in results:
-        print(f"{product['nome']}")
-        print(f"  Brand: {product['brand']}")
-        print(f"  Score: {product['similarity_score']:.3f}")
-        print()
-    
-    # Test formatting
-    formatted = format_products_for_context(results)
-    print(f"\n{'='*60}")
-    print("FORMATTED CONTEXT:")
-    print(f"{'='*60}\n")
-    print(formatted)

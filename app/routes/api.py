@@ -129,7 +129,7 @@ def chat():
             products = retriever.search(
                 query=enriched_query,  # ← FIXED: Use enriched_query instead of user_message
                 top_k=20,
-                min_similarity=0.3
+                min_similarity=0.0
             )
             
             logger.info(f"Found {len(products)} relevant products")
